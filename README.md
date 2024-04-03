@@ -1,1 +1,1 @@
-To start peogram install tkinter module, and run main.py
+To start program install tkinter module, and run main.py
