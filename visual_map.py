@@ -1,9 +1,13 @@
 import tkinter as tk
+from tkinter import scrolledtext
+import random
 
 class ColorfulMatrixGame:
     def __init__(self, root, matrix, piece_size, obstacle_numbers):
         self.root = root
         self.root.title("Map")
+        self.root.configure(bg='black')
+        self.root.attributes('-fullscreen', True)
 
         self.matrix = matrix
         self.matrix_size = len(matrix)
@@ -14,21 +18,51 @@ class ColorfulMatrixGame:
         self.colors = {}  # Dictionary to store the colors of each number
         self.revealed = set()  # Set to keep track of revealed numbers
 
-        self.canvas = tk.Canvas(root, width=piece_size * 50, height=piece_size * 50)
-        self.canvas.pack()
+        # Calculate the dimensions for the canvas and the position for the matrix
+        canvas_width = self.piece_size * (self.matrix_size//3)
+        canvas_height = self.piece_size * (self.matrix_size//3)
+
+        # Keep the matrix on the left side of the screen
+        matrix_x = 50
+        matrix_y = 50
+
+
+        self.canvas = tk.Canvas(root, bg='black', highlightthickness=0)
+        self.canvas.pack(fill=tk.BOTH, expand=True)
+
+        self.border_x1 = 0
+        self.border_y1 = 0
+        self.border_x2 = canvas_width + 1
+        self.border_y2 = canvas_height + 1
+
+
+
+        self.welcome_label = tk.Label(root, text="Welcome to adventure game", bg='black', fg='green',
+                                      font=('Courier', 16))
+        self.welcome_label.place(x=root.winfo_screenwidth() - 700, y=10)  # Position the label at the top right corner
+
+        # Adjust the height of the text area
+        self.text_area = scrolledtext.ScrolledText(root, bg='black', fg='green', insertbackground='green',
+                                                   font=('Courier', 18), wrap=tk.WORD, height=12)
+        self.text_area.pack(fill=tk.BOTH, expand=False)  # Make sure it doesn't expand
+
+        self.text_area.configure(state='disabled')
+
+        self.input = tk.Entry(root, bg='black', fg='green', insertbackground='green', font=('Courier', 20))
+        self.input.pack(side=tk.BOTTOM, fill=tk.X)
+        self.input.bind('<Return>', self.process_command)
 
         self.init_color_map()
         self.draw_matrix()
 
-        # Bind arrow key events to move the person
-        root.bind("<Left>", self.move_left)
-        root.bind("<Right>", self.move_right)
-        root.bind("<Up>", self.move_up)
-        root.bind("<Down>", self.move_down)
-
+        # Arrow key bindings
+        root.bind("<Left>", lambda event: self.move_player("left"))
+        root.bind("<Right>", lambda event: self.move_player("right"))
+        root.bind("<Up>", lambda event: self.move_player("up"))
+        root.bind("<Down>", lambda event: self.move_player("down"))
 
     def colors_mapping(self):
-        color_map = {
+        return {
             0: "lawngreen",
             1: "coral",
             2: "olive",
@@ -45,18 +79,14 @@ class ColorfulMatrixGame:
             13: "bisque",
             14: "chocolate"
         }
-        return color_map
+
     def init_color_map(self):
         color_mapping = self.colors_mapping()
         for number, color in color_mapping.items():
             self.colors[number] = color
-        """    
-        unique_numbers = set(num for row in self.matrix for num in row)
-        for number in unique_numbers:
-            self.colors[number] = generate_random_color()
-        """
+
     def draw_matrix(self):
-        self.canvas.delete("all")  # Clear the canvas
+        self.canvas.delete("all")
         temp = 50
         current_piece_x, current_piece_y = self.person_position[0] // temp, self.person_position[1] // temp
 
@@ -70,43 +100,48 @@ class ColorfulMatrixGame:
                 number = self.matrix[i][j]
 
                 if (i, j) == self.person_position:
-                    color = "white"  # Color for the person
-                #elif number in self.obstacle_numbers:
-                #    color = "red"  # Color for obstacles
+                    color = "white"
                 elif (i, j) in self.revealed:
-                    color = self.colors[number]  # Use the revealed color
+                    color = self.colors.get(number, "black")
                 else:
-                    color = "black"  # Hide the color
+                    color = "black"
 
                 self.canvas.create_rectangle(x1, y1, x2, y2, fill=color, outline="black")
 
-    def move_person(self, dx, dy):
-        x, y = self.person_position
-        new_x, new_y = x + dx, y + dy
+        self.canvas.create_rectangle(self.border_x1, self.border_y1, self.border_x2, self.border_y2, outline='green')
 
-        # Check if the new position is within the matrix boundaries and not an obstacle
-        if (
-            0 <= new_x < self.matrix_size
-            and 0 <= new_y < self.matrix_size
-            and self.matrix[new_x][new_y] not in self.obstacle_numbers
-        ):
-            self.person_position = (new_x, new_y)
-            #self.reveal_nearby_numbers(dx, dy)
-            self.reveal_nearby_numbers()
-            self.draw_matrix()
+    def move_player(self, direction, steps=1):
+        dx, dy = 0, 0
+        if direction == "up":
+            dy = -1
+        elif direction == "down":
+            dy = 1
+        elif direction == "left":
+            dx = -1
+        elif direction == "right":
+            dx = 1
 
-    def move_left(self, event):
-        self.move_person(-1, 0)
+        for _ in range(steps):
+            new_x, new_y = self.person_position[0] + dx, self.person_position[1] + dy
+            if (
+                    0 <= new_x < self.matrix_size
+                    and 0 <= new_y < self.matrix_size
+                    and self.matrix[new_x][new_y] not in self.obstacle_numbers
+            ):
+                # Check if the next cell has a different color
+                if (
+                        self.matrix[new_x][new_y]
+                        != self.matrix[self.person_position[0]][self.person_position[1]]
+                ):
+                    self.person_position = (new_x, new_y)
+                    self.reveal_nearby_numbers()
+                    break  # Stop moving if encountering a new color
+                self.person_position = (new_x, new_y)
+                self.reveal_nearby_numbers()
+            else:
+                break  # Stop moving if an obstacle is encountered
 
-    def move_right(self, event):
-        self.move_person(1, 0)
-
-    def move_up(self, event):
-        self.move_person(0, -1)
-
-    def move_down(self, event):
-        self.move_person(0, 1)
-
+        self.draw_matrix()
 
     def reveal_nearby_numbers(self):
         x, y = self.person_position
@@ -116,3 +151,41 @@ class ColorfulMatrixGame:
                 if 0 <= i < self.matrix_size and 0 <= j < self.matrix_size:
                     self.revealed.add((i, j))
 
+    def print_message(self, message):
+        self.text_area.configure(state='normal')
+        self.text_area.insert(tk.END, message + "\n")
+        self.text_area.see(tk.END)
+        self.text_area.configure(state='disabled')
+
+    def exit_game(self):
+        self.root.destroy()
+
+    def process_command(self, event):
+        command = self.input.get().lower()
+        self.input.delete(0, tk.END)
+
+        if command == "exit":  # Check if the command is "exit"
+            self.exit_game()
+        elif command.startswith(("up", "down", "left", "right")):
+            command_parts = command.split()
+            direction = command_parts[0]
+            if len(command_parts) > 1 and command_parts[1].isdigit():
+                steps = min(int(command_parts[1]), 20)  # Limit the steps to 20
+            else:
+                steps = 1
+            self.move_player(direction, steps)
+        else:
+            self.print_message(f"Unknown command: {command}")
+
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+
+    # Example: Create a 10x10 matrix filled with random numbers from 0 to 10
+    matrix = [[random.randint(0, 10) for _ in range(10)] for _ in range(10)]
+    # Example: Specify obstacle numbers
+    obstacle_numbers = [1]
+
+    game = ColorfulMatrixGame(root, matrix, 10, obstacle_numbers)
+    root.mainloop()
